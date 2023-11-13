@@ -5,6 +5,7 @@ import { formatBalance, web3 } from '@/utils';
 import Stake from '@/components/Stake';
 import List from '@/components/List';
 import { coinABI, coinAddress } from '@/utils/Coin';
+
 export default function Home() {
   const [WalletAddress, setWalletAddress] = React.useState('')
   const [WalletBalance, setWalletBalance] = React.useState('')
@@ -20,6 +21,7 @@ export default function Home() {
         method: "eth_requestAccounts",
       })
       setWalletAddress(accounts[0])
+      sessionStorage.setItem("address", accounts[0])
       //get balance
       const balance = formatBalance(await window.ethereum!.request({
         method: "eth_getBalance",
@@ -34,19 +36,30 @@ export default function Home() {
         .then((e: any) => {
           const balance = web3.utils.fromWei(e, 'ether')
           console.log(balance)
+          sessionStorage.setItem("balance", balance)
           setTokenBalance(balance)
         }
         )
         .catch(error => console.log(error))
     }
   }
+
+  React.useEffect(() => {
+    const walletAdd = sessionStorage.getItem("address")
+    const tokenBalance = sessionStorage.getItem("balance")
+    if (walletAdd && tokenBalance) {
+      setWalletAddress(walletAdd)
+      setTokenBalance(tokenBalance)
+    }
+  }, [])
+
   return (
     <>
       <section className="landing_page">
         <div className="box">
-          <h1>Balance : {WalletBalance === "" ? 'Not Available' : WalletBalance}</h1>
+          <h1>GLD Coin</h1>
           <h4>Account Id : {WalletAddress === "" ? "please connect to wallet" : `${WalletAddress.slice(0, 4)}...${WalletAddress.slice(-4)}`}</h4>
-          <h4>Token Balance : {TokenBalance === "" ? "please connect to wallet" : TokenBalance}</h4>
+          {/* <h4>Token Balance : {TokenBalance === "" ? "please connect to wallet" : TokenBalance}</h4> */}
           {
             WalletAddress === "" ?
               <button onClick={connectWallet} className="main">Connect Wallet</button>
@@ -54,7 +67,7 @@ export default function Home() {
               <button className="main connected">Connected</button>
           }
         </div>
-        <Stake WalletAddress={WalletAddress} />
+        <Stake WalletAddress={WalletAddress} connectWallet={connectWallet} />
         <List />
       </section>
     </>

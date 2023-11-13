@@ -6,14 +6,19 @@ import { Button, Container, Form, InputGroup } from 'react-bootstrap'
 import Col from 'react-bootstrap/esm/Col'
 import Row from 'react-bootstrap/esm/Row'
 
-export default function Stake({ WalletAddress }: { WalletAddress: string }) {
+export default function Stake({ WalletAddress, connectWallet }: { WalletAddress: string, connectWallet: () => any }) {
+    const walletAddress = sessionStorage.getItem("address")
     const [StakeAmount, setStakeAmount] = React.useState('')
     const [StakeMonth, setStakeMonth] = React.useState('')
     const [UnStakeMonth, setUnStakeMonth] = React.useState('')
+    const [RewardAmount, setRewardAmount] = React.useState('')
+    const StakeAmountRef = React.useRef(null)
+    const StakeMonthRef = React.useRef(null)
 
 
     const stakeInstance = new web3.eth.Contract(stakingABI, stakingAddress)
     const coinInstance = new web3.eth.Contract(coinABI, coinAddress)
+    const value = web3.utils.toWei(StakeAmount, "ether")
     async function onStake() {
         //basic validation
         if (!WalletAddress) {
@@ -27,9 +32,8 @@ export default function Stake({ WalletAddress }: { WalletAddress: string }) {
             return
         }
         //calling approve method
-        const value = web3.utils.toWei(StakeAmount, "ether")
         //@ts-ignore
-        coinInstance.methods.approve(coinAddress, value)
+        await coinInstance.methods.approve(stakingAddress, value)
             .send({ from: WalletAddress })
             .then(data => {
                 console.log(data);
@@ -38,11 +42,14 @@ export default function Stake({ WalletAddress }: { WalletAddress: string }) {
             })
 
         //calling stake method
+        console.log({ value, StakeMonth });
+
         // @ts-ignore
         await stakeInstance.methods.stake(value, StakeMonth)
             .send({ from: WalletAddress })
             .then(data => {
                 console.log(data);
+                window.location.reload()
             }).catch(error => {
                 console.log(error);
             })
@@ -61,20 +68,33 @@ export default function Stake({ WalletAddress }: { WalletAddress: string }) {
             .send({ from: WalletAddress })
             .then(data => {
                 console.log(data);
+                window.location.reload()
             }).catch(error => {
                 console.log(error);
             })
     }
 
     async function rewardEstimate() {
-        //@ts-ignore
-        await stakeInstance.methods.calculateReward("amount", "interestRate", "month")
-            .send({ from: WalletAddress })
-            .then(data => {
-                console.log(data);
-            }).catch(error => {
-                console.log(error);
-            })
+        //basic validation
+        if (StakeAmountRef !== null) {
+            //@ts-ignore
+            if (StakeAmountRef.current.value !== "" && StakeMonthRef.current.value !== "") {
+                const interestRate = {
+                    3: 22,
+                    6: 45,
+                    12: 100
+                }
+                //@ts-ignore
+                await stakeInstance.methods.calculateReward(value, interestRate[StakeMonthRef.current.value], StakeMonthRef.current.value)
+                    .call()
+                    .then((data: any) => {
+                        const reward = web3.utils.fromWei(data, "ether")
+                        setRewardAmount(reward)
+                    }).catch(error => {
+                        console.log(error);
+                    })
+            }
+        }
     }
 
     //Coin
@@ -120,7 +140,8 @@ export default function Stake({ WalletAddress }: { WalletAddress: string }) {
 
                         <InputGroup>
                             <Form.Control
-                                onChange={(e) => setStakeAmount(e.target.value)}
+                                ref={StakeAmountRef}
+                                onChange={(e) => { setStakeAmount(e.target.value), rewardEstimate() }}
                                 value={StakeAmount}
                                 min={0.001}
                                 type='number'
@@ -128,35 +149,37 @@ export default function Stake({ WalletAddress }: { WalletAddress: string }) {
                                 aria-label="stake amount"
                                 aria-describedby="basic-addon2"
                             />
-                            <Form.Control
-                                onChange={(e) => setStakeMonth(e.target.value)}
+                            <Form.Select style={{ maxWidth: "30%" }} aria-label="stake month"
+                                ref={StakeMonthRef}
+                                onChange={(e) => { setStakeMonth(e.target.value), rewardEstimate() }}
                                 value={StakeMonth}
-                                min={1}
-                                type='number'
-                                placeholder="stake month"
-                                aria-label="stake month"
-                                aria-describedby="basic-addon3"
-                            />
+                            >
+                                <option value="">select duration</option>
+                                <option value="3">3</option>
+                                <option value="6">6</option>
+                                <option value="12">12</option>
+                            </Form.Select>
                             <button onClick={onStake} className='main m-0'>stake</button>
                         </InputGroup>
                         <Form.Text className='text-white mb-3 d-block'>
-                            Estimated Reward : 00.00
+                            Estimated Reward : {RewardAmount === "" ? "00.00" : RewardAmount}
                         </Form.Text>
                     </Col>
                     <Col lg={4}>
                         <InputGroup>
-                            <Form.Control
+                            <Form.Select aria-label="unStake month"
                                 onChange={(e) => setUnStakeMonth(e.target.value)}
                                 value={UnStakeMonth}
-                                min={1}
-                                type='number'
-                                placeholder="stake month"
-                                aria-label="stake month"
-                                aria-describedby="basic-addon3"
-                            />
+                            >
+                                <option value="">select duration</option>
+                                <option value="3">3</option>
+                                <option value="6">6</option>
+                                <option value="12">12</option>
+                            </Form.Select>
                             <button onClick={onUnStake} className='main m-0'>unStake</button>
                         </InputGroup>
                         {/* <button onClick={addToken}>add</button> */}
+                        {/* <button onClick={list}>check list</button> */}
                     </Col>
                 </Row>
             </Container>
