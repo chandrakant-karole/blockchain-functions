@@ -1,95 +1,62 @@
-import Image from 'next/image'
-import styles from './page.module.css'
-
+"use client"
+import React from 'react';
+import detectEthereumProvider from '@metamask/detect-provider';
+import { formatBalance, web3 } from '@/utils';
+import Stake from '@/components/Stake';
+import List from '@/components/List';
+import { coinABI, coinAddress } from '@/utils/Coin';
 export default function Home() {
+  const [WalletAddress, setWalletAddress] = React.useState('')
+  const [WalletBalance, setWalletBalance] = React.useState('')
+  const [TokenBalance, setTokenBalance] = React.useState('')
+
+  //On Connect Wallet 
+  const connectWallet = async () => {
+    const provider = await detectEthereumProvider();
+    //checking ethereum connection
+    if (window.ethereum !== undefined && provider === window.ethereum) {
+      //connect wallet
+      let accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      })
+      setWalletAddress(accounts[0])
+      //get balance
+      const balance = formatBalance(await window.ethereum!.request({
+        method: "eth_getBalance",
+        params: [accounts[0], "latest"],
+      }))
+      setWalletBalance(balance)
+      //getting coin balance or token balance
+      const coinInstance = new web3.eth.Contract(coinABI, coinAddress)
+      //@ts-ignore
+      coinInstance.methods.balanceOf(accounts[0])
+        .call()
+        .then((e: any) => {
+          const balance = web3.utils.fromWei(e, 'ether')
+          console.log(balance)
+          setTokenBalance(balance)
+        }
+        )
+        .catch(error => console.log(error))
+    }
+  }
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <>
+      <section className="landing_page">
+        <div className="box">
+          <h1>Balance : {WalletBalance === "" ? 'Not Available' : WalletBalance}</h1>
+          <h4>Account Id : {WalletAddress === "" ? "please connect to wallet" : `${WalletAddress.slice(0, 4)}...${WalletAddress.slice(-4)}`}</h4>
+          <h4>Token Balance : {TokenBalance === "" ? "please connect to wallet" : TokenBalance}</h4>
+          {
+            WalletAddress === "" ?
+              <button onClick={connectWallet} className="main">Connect Wallet</button>
+              :
+              <button className="main connected">Connected</button>
+          }
         </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+        <Stake WalletAddress={WalletAddress} />
+        <List />
+      </section>
+    </>
   )
 }
